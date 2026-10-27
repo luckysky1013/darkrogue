@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>暗渊 Roguelike</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #16161d;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+  }
+  #canvas {
+    display: block;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    height: 100vh; width: calc(100vh * 720 / 1280);
+    max-width: 100vw;
+    max-height: calc(100vw * 1280 / 720);
+    background: #16161d;
+    touch-action: none;
+  }
+  #status {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #16161d; color: #8a8a99;
+    font: 16px -apple-system, system-ui, sans-serif;
+    z-index: 10; gap: 16px;
+  }
+  #status-title { font-size: 22px; color: #edc76f; letter-spacing: 1px; }
+  #status-progress {
+    width: 180px; height: 4px; border: none;
+    background: #2a2a36; border-radius: 2px; overflow: hidden;
+    -webkit-appearance: none; appearance: none;
+  }
+  #status-progress::-webkit-progress-bar { background: #2a2a36; }
+  #status-progress::-webkit-progress-value { background: #edc76f; }
+  #status-notice { display: none; max-width: 320px; text-align: center; font-size: 13px; color: #e07070; line-height: 1.5; }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="720" height="1280">你的浏览器不支持 canvas</canvas>
+<div id="status">
+  <div id="status-title">暗渊 Roguelike</div>
+  <progress id="status-progress"></progress>
+  <div id="status-notice"></div>
+</div>
+<script src="index.js"></script>
+<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":0,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":34640,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+  const statusOverlay = document.getElementById('status');
+  const statusProgress = document.getElementById('status-progress');
+  const statusNotice = document.getElementById('status-notice');
+  let initializing = true;
+  let statusMode = '';
+
+  function setStatusMode(mode) {
+    if (statusMode === mode || !initializing) return;
+    if (mode === 'hidden') {
+      statusOverlay.remove();
+      initializing = false;
+      return;
+    }
+    statusOverlay.style.visibility = 'visible';
+    statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+    statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+    statusMode = mode;
+  }
+
+  function displayFailureNotice(err) {
+    const msg = err instanceof Error ? err.message : err;
+    console.error(msg);
+    setStatusMode('notice');
+    statusNotice.textContent = '启动失败：' + msg;
+    initializing = false;
+  }
+
+  function start() {
+    const missing = Engine.getMissingFeatures({
+      threads: GODOT_THREADS_ENABLED,
+    });
+    if (missing.length !== 0) {
+      displayFailureNotice('缺少浏览器特性支持：' + missing.join(', '));
+      return;
+    }
+    setStatusMode('progress');
+    engine.startGame({
+      onProgress: function (current, total) {
+        if (current > 0 && total > 0) {
+          statusProgress.value = current;
+          statusProgress.max = total;
+        } else {
+          statusProgress.removeAttribute('value');
+          statusProgress.removeAttribute('max');
+        }
+      },
+    }).then(() => {
+      setStatusMode('hidden');
+    }, displayFailureNotice);
+  }
+
+  start();
+})();
+
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+</script>
+</body>
+</html>
+
